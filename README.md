@@ -1,2 +1,2 @@
 # junos-qos
-Various JunOS QoS Settings
+JunOS QoS Settings for Shoretel VoIP and VMware Horizon PCoIP
