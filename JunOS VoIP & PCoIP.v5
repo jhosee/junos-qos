@@ -1,0 +1,162 @@
+# JunOS CoS & QoS for VoIP/PCoIP
+
+# VoIP & PCoIP CoS for L2/LAN
+set class-of-service forwarding-classes class voice-control queue-num 3
+set class-of-service forwarding-classes class horizon queue-num 5
+set class-of-service forwarding-classes class voice queue-num 6
+
+set class-of-service tri-color classifiers dscp DSCP-CLASS forwarding-class voice-control loss-priority medium-low code-points af31
+set class-of-service tri-color classifiers dscp DSCP-CLASS forwarding-class horizon loss-priority medium-low code-points af41
+set class-of-service tri-color classifiers dscp DSCP-CLASS forwarding-class voice loss-priority low code-points ef
+
+set class-of-service schedulers VOICE-CONTROL-SCHED transmit-rate percent 10
+set class-of-service schedulers VOICE-CONTROL-SCHED buffer-size percent 5
+set class-of-service schedulers VOICE-CONTROL-SCHED priority low
+set class-of-service schedulers HORIZON-SCHED transmit-rate percent 10
+set class-of-service schedulers HORIZON-SCHED buffer-size percent 10
+set class-of-service schedulers HORIZON-SCHED priority low
+set class-of-service schedulers VOICE-SCHED shaping-rate percent 15
+set class-of-service schedulers VOICE-SCHED buffer-size percent 10
+set class-of-service schedulers VOICE-SCHED priority strict-high
+
+set class-of-service scheduler-maps ETH-COS-MAP forwarding-class voice-control scheduler VOICE-CONTROL-SCHED
+set class-of-service scheduler-maps ETH-COS-MAP forwarding-class horizon scheduler HORIZON-SCHED
+set class-of-service scheduler-maps ETH-COS-MAP forwarding-class voice scheduler VOICE-SCHED
+
+
+# Binding CoS to interfaces (up/downlinks of core/edge switches)
+set class-of-service interfaces xe-1/0/0 scheduler-map ETH-COS-MAP
+set class-of-service interfaces ae0 scheduler-map ETH-COS-MAP
+set class-of-service interfaces xe-1/0/0 unit 0 classifiers dscp DSCP-CLASS
+set class-of-service interfaces ae0 unit 0 classifiers dscp DSCP-CLASS
+
+# Set forwarding class on access interfaces (OPTIONAL?)
+set switch-options voip interface ge-0/0/0.0 
+set switch-options voip interface ge-0/0/0.0 forwarding-class voice vlan sd-28-voip
+
+
+# VoIP & PCoIP Filters for L2/LAN
+set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP from ip-protocol udp source-port 10000-10550 
+set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP from ip-protocol udp source-port 5004
+set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP from ip-protocol udp source-port 5060 
+set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP then count rtp-src-udp-counter
+set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP then forwarding-class voice
+set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP then loss-priority low
+set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP then accept
+
+set firewall family ethernet-switching filter VOIP term RTP_DST_UDP from ip-protocol udp destination-port 10000-10550
+set firewall family ethernet-switching filter VOIP term RTP_DST_UDP from ip-protocol udp destination-port 5004
+set firewall family ethernet-switching filter VOIP term RTP_DST_UDP from ip-protocol udp destination-port 5060
+set firewall family ethernet-switching filter VOIP term RTP_DST_UDP then count rtp-dst-udp-counter
+set firewall family ethernet-switching filter VOIP term RTP_DST_UDP then forwarding-class voice
+set firewall family ethernet-switching filter VOIP term RTP_DST_UDP then loss-priority low
+set firewall family ethernet-switching filter VOIP term RTP_DST_UDP then accept
+
+set firewall family ethernet-switching filter VOIP term RTP_SRC_TCP from ip-protocol tcp source-port 5060 
+set firewall family ethernet-switching filter VOIP term RTP_SRC_TCP then count rtp-src-tcp-counter
+set firewall family ethernet-switching filter VOIP term RTP_SRC_TCP then forwarding-class voice
+set firewall family ethernet-switching filter VOIP term RTP_SRC_TCP then loss-priority low
+set firewall family ethernet-switching filter VOIP term RTP_SRC_TCP then accept
+
+set firewall family ethernet-switching filter VOIP term RTP_DST_TCP from ip-protocol tcp destination-port 5060 
+set firewall family ethernet-switching filter VOIP term RTP_DST_TCP then count rtp-dst-tcp-counter
+set firewall family ethernet-switching filter VOIP term RTP_DST_TCP then forwarding-class voice
+set firewall family ethernet-switching filter VOIP term RTP_DST_TCP then loss-priority low
+set firewall family ethernet-switching filter VOIP term RTP_DST_TCP then accept
+
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP from ip-protocol udp source-port 2427 
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP from ip-protocol udp source-port 2727
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP from ip-protocol udp source-port 5440-5446
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP from ip-protocol udp source-port 5450
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP then count voipsig-src-udp-counter
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP then loss-priority medium-low
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP then forwarding-class voice-control
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_UDP then accept
+
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP from ip-protocol udp destination-port 2427 
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP from ip-protocol udp destination-port 2727
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP from ip-protocol udp destination-port 5440-5446
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP from ip-protocol udp destination-port 5450
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP then count voipsig-dst-udp-counter
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP then forwarding-class voice-control
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP then loss-priority medium-low
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_UDP then accept
+
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_TCP from ip-protocol tcp source-port 5430 
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_TCP from ip-protocol tcp source-port 5447 
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_TCP from ip-protocol tcp source-port 5452 
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_TCP then count voipsig-src-tcp-counter
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_TCP then forwarding-class voice-control
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_TCP then loss-priority medium-low
+set firewall family ethernet-switching filter VOIP term VOIPSIG_SRC_TCP then accept
+
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_TCP from ip-protocol tcp destination-port 5430
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_TCP from ip-protocol tcp destination-port 5447 
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_TCP from ip-protocol tcp destination-port 5452 
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_TCP then count voipsig-dst-tcp-counter
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_TCP then forwarding-class voice-control
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_TCP then loss-priority medium-low
+set firewall family ethernet-switching filter VOIP term VOIPSIG_DST_TCP then accept
+
+set firewall family ethernet-switching filter VOIP term accept-all then accept
+
+# PCoIP Filters
+set firewall family ethernet-switching filter HORIZON term PCOIP_SRC from ip-protocol udp source-port 4172 
+set firewall family ethernet-switching filter HORIZON term PCOIP_SRC from ip-protocol tcp source-port 4172
+set firewall family ethernet-switching filter HORIZON term PCOIP_SRC then count pcoip-src-counter
+set firewall family ethernet-switching filter HORIZON term PCOIP_SRC then forwarding-class horizon
+set firewall family ethernet-switching filter HORIZON term PCOIP_SRC then loss-priority medium-low
+set firewall family ethernet-switching filter HORIZON term PCOIP_SRC then accept
+
+set firewall family ethernet-switching filter HORIZON term PCOIP_DST from ip-protocol udp destination-port 4172 
+set firewall family ethernet-switching filter HORIZON term PCOIP_DST from ip-protocol tcp destination-port 4172 
+set firewall family ethernet-switching filter HORIZON term PCOIP_DST then count pcoip-dst-counter
+set firewall family ethernet-switching filter HORIZON term PCOIP_DST then forwarding-class horizon
+set firewall family ethernet-switching filter HORIZON term PCOIP_DST then loss-priority medium-low
+set firewall family ethernet-switching filter HORIZON term PCOIP_DST then accept
+
+set firewall family ethernet-switching filter HORIZON term BLAST_SRC from ip-protocol udp source-port 22443 
+set firewall family ethernet-switching filter HORIZON term BLAST_SRC from ip-protocol tcp source-port 22443 
+set firewall family ethernet-switching filter HORIZON term BLAST_SRC then count blast-src-counter
+set firewall family ethernet-switching filter HORIZON term BLAST_SRC then forwarding-class horizon
+set firewall family ethernet-switching filter HORIZON term BLAST_SRC then loss-priority medium-low
+set firewall family ethernet-switching filter HORIZON term BLAST_SRC then accept
+
+set firewall family ethernet-switching filter HORIZON term BLAST_DST from ip-protocol udp destination-port 22443 
+set firewall family ethernet-switching filter HORIZON term BLAST_DST from ip-protocol tcp destination-port 22443 
+set firewall family ethernet-switching filter HORIZON term BLAST_DST then count blast-dst-counter
+set firewall family ethernet-switching filter HORIZON term BLAST_DST then forwarding-class horizon
+set firewall family ethernet-switching filter HORIZON term BLAST_DST then loss-priority medium-low
+set firewall family ethernet-switching filter HORIZON term BLAST_DST then accept
+
+set firewall family ethernet-switching filter HORIZON term accept-all then accept
+
+
+# Apply filters to appropriate VLANs - ELS
+set vlans sd-2-voip forwarding-options filter input VOIP
+set vlans sd-28-voip forwarding-options filter input VOIP
+set vlans sd-128-voip forwarding-options filter input VOIP
+set vlans sd-29-vdi forwarding-options filter input HORIZON
+
+# Apply filters to appropriate VLANs - Non-ELS
+set vlans sd-2-voip filter input VOIP
+set vlans sd-28-voip filter input VOIP
+set vlans sd-128-voip filter input VOIP
+set vlans sd-29-vdi filter input HORIZON
+
+
+
+# Optional Traffic Remarking
+# Create rewrite rules to mark/remark traffic between VLANs
+set class-of-service rewrite-rules dscp RW-DSCP-VOIP forwarding-class voice-control loss-priority low codepoint af31
+set class-of-service rewrite-rules dscp RW-DSCP-HORIZON forwarding-class horizon loss-priority low codepoint af41
+set class-of-service rewrite-rules dscp RW-DSCP-VOIP forwarding-class voice loss-priority low code-point ef
+
+# Bind rewrite rules to VLAN interfaces where VoIP exists
+set class-of-service interfaces vlan unit 10 rewrite-rules dscp RW-DSCP-HORIZON
+set class-of-service interfaces vlan unit 20 rewrite-rules dscp RW-DSCP-VOIP
+
+
+
+
+
