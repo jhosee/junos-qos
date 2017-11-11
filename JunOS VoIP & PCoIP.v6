@@ -1,6 +1,6 @@
 # JunOS CoS & QoS for VoIP/PCoIP
 
-# VoIP & PCoIP CoS for L2/LAN
+# Define Inbound traffic VoIP & PCoIP CoS for L2/LAN
 set class-of-service forwarding-classes class voice-control queue-num 3
 set class-of-service forwarding-classes class horizon queue-num 5
 set class-of-service forwarding-classes class voice queue-num 6
@@ -23,19 +23,21 @@ set class-of-service scheduler-maps ETH-COS-MAP forwarding-class voice-control s
 set class-of-service scheduler-maps ETH-COS-MAP forwarding-class horizon scheduler HORIZON-SCHED
 set class-of-service scheduler-maps ETH-COS-MAP forwarding-class voice scheduler VOICE-SCHED
 
+# Define Outbound Traffic Remarking VoIP & PCoIP CoS for L2/LAN
+set class-of-service rewrite-rules dscp DSCP-CLASS-RW forwarding-class voice-control loss-priority medium-low code-point af31
+set class-of-service rewrite-rules dscp DSCP-CLASS-RW forwarding-class voice loss-priority low code-point ef
+set class-of-service rewrite-rules dscp DSCP-CLASS-RW forwarding-class horizon loss-priority medium-low code-point af41
 
-# Binding CoS to interfaces (up/downlinks of core/edge switches)
+# Bind CoS to interfaces (up/downlinks of core/edge switches) - Inbound Traffic
 set class-of-service interfaces xe-1/0/0 scheduler-map ETH-COS-MAP
 set class-of-service interfaces ae0 scheduler-map ETH-COS-MAP
 set class-of-service interfaces xe-1/0/0 unit 0 classifiers dscp DSCP-CLASS
 set class-of-service interfaces ae0 unit 0 classifiers dscp DSCP-CLASS
 
-# Set forwarding class on access interfaces (OPTIONAL?)
-set switch-options voip interface ge-0/0/0.0 
-set switch-options voip interface ge-0/0/0.0 forwarding-class voice vlan sd-28-voip
+# Bind CoS to interfaces (up/downlinks of core/edge switches) - Outbound Traffic
+set class-of-service interfaces ae0 unit 0 rewrite-rules dscp DSCP-CLASS-RW
 
-
-# VoIP & PCoIP Filters for L2/LAN
+# Multifield Classifiers VoIP & PCoIP Filters for L2/LAN (edge switches)
 set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP from ip-protocol udp source-port 10000-10550 
 set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP from ip-protocol udp source-port 5004
 set firewall family ethernet-switching filter VOIP term RTP_SRC_UDP from ip-protocol udp source-port 5060 
@@ -131,32 +133,19 @@ set firewall family ethernet-switching filter HORIZON term BLAST_DST then accept
 
 set firewall family ethernet-switching filter HORIZON term accept-all then accept
 
-
-# Apply filters to appropriate VLANs - ELS
+# Apply multifield classifier filters to appropriate VLANs - ELS
 set vlans sd-2-voip forwarding-options filter input VOIP
 set vlans sd-28-voip forwarding-options filter input VOIP
 set vlans sd-128-voip forwarding-options filter input VOIP
 set vlans sd-29-vdi forwarding-options filter input HORIZON
 
-# Apply filters to appropriate VLANs - Non-ELS
+# Apply multifield classifier filters to appropriate VLANs - Non-ELS
 set vlans sd-2-voip filter input VOIP
 set vlans sd-28-voip filter input VOIP
 set vlans sd-128-voip filter input VOIP
 set vlans sd-29-vdi filter input HORIZON
 
 
-
-# Optional Traffic Remarking
-# Create rewrite rules to mark/remark traffic between VLANs
-set class-of-service rewrite-rules dscp RW-DSCP-VOIP forwarding-class voice-control loss-priority low codepoint af31
-set class-of-service rewrite-rules dscp RW-DSCP-HORIZON forwarding-class horizon loss-priority low codepoint af41
-set class-of-service rewrite-rules dscp RW-DSCP-VOIP forwarding-class voice loss-priority low code-point ef
-
-# Bind rewrite rules to VLAN interfaces where VoIP exists
-set class-of-service interfaces vlan unit 10 rewrite-rules dscp RW-DSCP-HORIZON
-set class-of-service interfaces vlan unit 20 rewrite-rules dscp RW-DSCP-VOIP
-
-
-
-
-
+# Set forwarding class on access interfaces (OPTIONAL?)
+set switch-options voip interface ge-0/0/0.0 
+set switch-options voip interface ge-0/0/0.0 forwarding-class voice vlan sd-28-voip
