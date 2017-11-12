@@ -1,0 +1,36 @@
+# JunOS CoS & QoS for VoIP/PCoIP
+
+# Define Inbound traffic VoIP & PCoIP CoS for L2/LAN
+set groups QOS_GLOBAL class-of-service forwarding-classes class voice-control queue-num 3
+set groups QOS_GLOBAL class-of-service forwarding-classes class horizon queue-num 5
+set groups QOS_GLOBAL class-of-service forwarding-classes class voice queue-num 6
+
+set groups QOS_GLOBAL class-of-service tri-color classifiers dscp DSCP-CLASS forwarding-class voice-control loss-priority medium-low code-points af31
+set groups QOS_GLOBAL class-of-service tri-color classifiers dscp DSCP-CLASS forwarding-class horizon loss-priority medium-low code-points af41
+set groups QOS_GLOBAL class-of-service tri-color classifiers dscp DSCP-CLASS forwarding-class voice loss-priority low code-points ef
+
+set groups QOS_GLOBAL class-of-service schedulers VOICE-CONTROL-SCHED transmit-rate percent 10
+set groups QOS_GLOBAL class-of-service schedulers VOICE-CONTROL-SCHED buffer-size percent 5
+set groups QOS_GLOBAL class-of-service schedulers VOICE-CONTROL-SCHED priority low
+set groups QOS_GLOBAL class-of-service schedulers HORIZON-SCHED transmit-rate percent 10
+set groups QOS_GLOBAL class-of-service schedulers HORIZON-SCHED buffer-size percent 10
+set groups QOS_GLOBAL class-of-service schedulers HORIZON-SCHED priority low
+set groups QOS_GLOBAL class-of-service schedulers VOICE-SCHED shaping-rate percent 15
+set groups QOS_GLOBAL class-of-service schedulers VOICE-SCHED buffer-size percent 10
+set groups QOS_GLOBAL class-of-service schedulers VOICE-SCHED priority strict-high
+
+set groups QOS_GLOBAL class-of-service scheduler-maps ETH-COS-MAP forwarding-class voice-control scheduler VOICE-CONTROL-SCHED
+set groups QOS_GLOBAL class-of-service scheduler-maps ETH-COS-MAP forwarding-class horizon scheduler HORIZON-SCHED
+set groups QOS_GLOBAL class-of-service scheduler-maps ETH-COS-MAP forwarding-class voice scheduler VOICE-SCHED
+
+# Define Outbound Traffic Remarking VoIP & PCoIP CoS for L2/LAN
+set groups QOS_GLOBAL class-of-service rewrite-rules dscp DSCP-CLASS-RW forwarding-class voice-control loss-priority medium-low code-point af31
+set groups QOS_GLOBAL class-of-service rewrite-rules dscp DSCP-CLASS-RW forwarding-class voice loss-priority low code-point ef
+set groups QOS_GLOBAL class-of-service rewrite-rules dscp DSCP-CLASS-RW forwarding-class horizon loss-priority medium-low code-point af41
+
+# Bind CoS to interfaces (up/downlinks of core/edge switches) - Inbound Traffic
+set groups QOS_GLOBAL class-of-service interfaces ae1 scheduler-map ETH-COS-MAP
+set groups QOS_GLOBAL class-of-service interfaces ae1 unit 0 classifiers dscp DSCP-CLASS
+
+# Bind CoS to interfaces (up/downlinks of core/edge switches) - Outbound Traffic
+set groups QOS_GLOBAL class-of-service interfaces ae1 unit 0 rewrite-rules dscp DSCP-CLASS-RW
